@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract CompteurCollaboratif {
+    
+    // Compteur actuel (de 0 à 100)
+    uint256 public compteur;
+    
+    // Adresse du dernier participant
+    address public dernierParticipant;
+    
+    // Historique des participants
+    mapping(uint256 => address) public historique;
+    
+    // Nombre de participations par adresse
+    mapping(address => uint256) public participations;
+    
+    // État du jeu
+    bool public jeuTermine;
+    
+    // Événements
+    event CompteurIncrement(address indexed participant, uint256 nouveauCompteur);
+    event JeuTermine(address indexed gagnant, uint256 compteurFinal);
+    event JeuReinitialise();
+    
+    constructor() {
+        compteur = 0;
+        jeuTermine = false;
+    }
+    
+    // Fonction pour incrémenter le compteur
+    function incrementer() public {
+        require(!jeuTermine, "Le jeu est termine, reinitialiser pour recommencer");
+        require(compteur < 100, "Le compteur a atteint 100");
+        require(msg.sender != dernierParticipant, "Vous ne pouvez pas incrementer deux fois de suite");
+        
+        // Incrémenter le compteur
+        compteur++;
+        
+        // Enregistrer le participant
+        dernierParticipant = msg.sender;
+        historique[compteur] = msg.sender;
+        participations[msg.sender]++;
+        
+        emit CompteurIncrement(msg.sender, compteur);
+        
+        // Vérifier si on a atteint 100
+        if (compteur == 100) {
+            jeuTermine = true;
+            emit JeuTermine(msg.sender, compteur);
+        }
+    }
+    
+    // Réinitialiser le jeu (peut être appelé par n'importe qui une fois le jeu terminé)
+    function reinitialiser() public {
+        require(jeuTermine, "Le jeu n'est pas encore termine");
+        
+        compteur = 0;
+        dernierParticipant = address(0);
+        jeuTermine = false;
+        
+        emit JeuReinitialise();
+    }
+    
+    // Forcer la réinitialisation (fonction d'urgence, accessible à tous)
+    function forcerReinitialisation() public {
+        compteur = 0;
+        dernierParticipant = address(0);
+        jeuTermine = false;
+        
+        emit JeuReinitialise();
+    }
+    
+    // Obtenir le participant qui a compté un nombre spécifique
+    function obtenirParticipant(uint256 _nombre) public view returns (address) {
+        require(_nombre > 0 && _nombre <= compteur, "Nombre invalide");
+        return historique[_nombre];
+    }
+    
+    // Obtenir le nombre de participations d'une adresse
+    function obtenirNombreParticipations(address _participant) public view returns (uint256) {
+        return participations[_participant];
+    }
+    
+    // Obtenir les derniers participants (jusqu'à 10)
+    function obtenirDerniersParticipants(uint256 _nombre) public view returns (address[] memory) {
+        require(_nombre > 0 && _nombre <= 10, "Demander entre 1 et 10 participants");
+        
+        uint256 debut = compteur > _nombre ? compteur - _nombre + 1 : 1;
+        uint256 taille = compteur >= debut ? compteur - debut + 1 : 0;
+        
+        address[] memory participants = new address[](taille);
+        
+        for (uint256 i = 0; i < taille; i++) {
+            participants[i] = historique[debut + i];
+        }
+        
+        return participants;
+    }
+    
+    // Obtenir toutes les infos du jeu
+    function obtenirInfosJeu() public view returns (
+        uint256 compteurActuel,
+        address dernierJoueur,
+        bool termine,
+        uint256 nombreRestant
+    ) {
+        return (
+            compteur,
+            dernierParticipant,
+            jeuTermine,
+            100 - compteur
+        );
+    }
+}
